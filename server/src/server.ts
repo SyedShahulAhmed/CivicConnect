@@ -30,7 +30,7 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.use(limiter);
+app.use(limiter as any);
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 

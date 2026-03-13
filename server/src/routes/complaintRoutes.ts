@@ -23,8 +23,8 @@ const upload = multer({
 router.get("/", optionalAuth, getComplaints);
 router.get("/nearby", getNearbyComplaints);
 router.get("/:id", getComplaintById);
-router.post("/", authMiddleware, roleMiddleware("citizen", "admin"), upload.single("image"), createComplaint);
-router.patch("/:id", authMiddleware, roleMiddleware("citizen", "admin"), upload.single("image"), updateComplaint);
+router.post("/", authMiddleware, roleMiddleware("citizen", "admin"), upload.single("image") as any, createComplaint);
+router.patch("/:id", authMiddleware, roleMiddleware("citizen", "admin"), upload.single("image") as any, updateComplaint);
 router.patch("/:id/status", authMiddleware, roleMiddleware("admin"), patchComplaintStatus);
 
 export default router;
