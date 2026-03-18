@@ -24,7 +24,7 @@ const complaintSchema = Joi.object({
 });
 
 const statusSchema = Joi.object({
-  status: Joi.string().valid("Pending", "In Progress", "Resolved").required(),
+  status: Joi.string().valid("Pending", "In Progress", "Resolved", "Rejected").required(),
   department: Joi.string().trim().max(120).optional(),
 });
 
@@ -166,6 +166,8 @@ export const patchComplaintStatus = async (
       complaintIdentifier: String(req.params.id),
       status: payload.status,
       department: payload.department,
+      actorId: req.user?.id,
+      actorName: req.user?.email,
     });
 
     res.json({

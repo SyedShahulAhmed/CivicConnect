@@ -1,5 +1,8 @@
 import { Schema, Types, model, type HydratedDocument, type InferSchemaType } from "mongoose";
 
+export const complaintStatuses = ["Pending", "In Progress", "Resolved", "Rejected"] as const;
+export type ComplaintStatus = (typeof complaintStatuses)[number];
+
 const complaintSchema = new Schema(
   {
     complaintId: {
@@ -48,7 +51,7 @@ const complaintSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["Pending", "In Progress", "Resolved"],
+      enum: complaintStatuses,
       default: "Pending",
     },
     department: {
@@ -62,6 +65,10 @@ const complaintSchema = new Schema(
       required: true,
     },
     imageUrl: {
+      type: String,
+      trim: true,
+    },
+    imageThumbnailUrl: {
       type: String,
       trim: true,
     },
@@ -88,6 +95,9 @@ const complaintSchema = new Schema(
     slaDeadline: {
       type: Date,
       required: true,
+    },
+    lastAdminSlaReminderAt: {
+      type: Date,
     },
     remarks: [
       {

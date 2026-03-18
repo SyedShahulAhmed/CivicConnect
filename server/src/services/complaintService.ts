@@ -3,10 +3,16 @@ import type { Types } from "mongoose";
 
 import { runAiPipeline, type ComplaintCategory } from "../ai-engine/pipeline";
 import { uploadImageToCloudinary } from "../config/cloudinary";
-import { ComplaintModel } from "../models/Complaint";
+import { HttpError } from "../middleware/errorHandler";
+import { ComplaintModel, type ComplaintStatus } from "../models/Complaint";
 import { DepartmentModel } from "../models/Department";
 import { SlaRuleModel } from "../models/SlaRule";
-import { HttpError } from "../middleware/errorHandler";
+import { UserModel } from "../models/User";
+import { sendComplaintStatusEmail } from "./emailService";
+import {
+  createComplaintStatusNotification,
+  notifyAdminsAboutNewComplaint,
+} from "./notificationService";
 import { createGeoPoint } from "../utils/geoUtils";
 import { generateComplaintId } from "../utils/generateComplaintId";
 
@@ -59,10 +65,56 @@ const categoryDepartmentMap: Record<ComplaintCategory, string> = {
   drainage: "Drainage and Sewage Board",
 };
 
+const closedComplaintStatuses: ComplaintStatus[] = ["Resolved", "Rejected"];
+const complaintStatusMessages: Record<ComplaintStatus, string> = {
+  Pending: "Your complaint has been received and is awaiting review.",
+  "In Progress": "The responsible department has started working on your complaint.",
+  Resolved: "The department marked your complaint as resolved.",
+  Rejected: "The complaint was reviewed and rejected by the admin team.",
+};
+
 const findComplaintByIdentifier = async (complaintIdentifier: string) => {
   return ComplaintModel.findOne(
     complaintIdentifier.startsWith("CMP-") ? { complaintId: complaintIdentifier } : { _id: complaintIdentifier },
   );
+};
+
+const handleComplaintStatusSideEffects = async ({
+  complaintId,
+  citizenId,
+  title,
+  status,
+}: {
+  complaintId: string;
+  citizenId: string;
+  title: string;
+  status: ComplaintStatus;
+}) => {
+  const message = `Your complaint '${title}' is now ${status}.`;
+
+  await createComplaintStatusNotification({
+    userId: citizenId,
+    complaintId,
+    title: "Complaint status updated",
+    message,
+  });
+
+  const citizen = await UserModel.findById(citizenId).lean();
+
+  if (!citizen?.email) {
+    return;
+  }
+
+  try {
+    await sendComplaintStatusEmail({
+      recipientEmail: citizen.email,
+      complaintTitle: title,
+      status,
+      message: complaintStatusMessages[status],
+    });
+  } catch (error) {
+    console.error("Failed to send complaint status email", error);
+  }
 };
 
 export const seedReferenceData = async (): Promise<void> => {
@@ -114,7 +166,7 @@ export const createComplaintWithAi = async ({
   image?: Express.Multer.File;
 }) => {
   const existingComplaints = await ComplaintModel.find({
-    status: { $ne: "Resolved" },
+    status: { $nin: closedComplaintStatuses },
   }).sort({ createdAt: -1 });
 
   const aiResult = runAiPipeline({
@@ -123,7 +175,7 @@ export const createComplaintWithAi = async ({
     categoryHint: category,
     existingComplaints,
   });
-  const imageUrl = await uploadImageToCloudinary(image);
+  const uploadedImage = await uploadImageToCloudinary(image);
   const slaDeadline = await calculateSlaDeadline(aiResult.category);
 
   const createdComplaint = await ComplaintModel.create({
@@ -138,11 +190,23 @@ export const createComplaintWithAi = async ({
     status: "Pending",
     department: resolveDepartmentName(aiResult.category),
     citizenId,
-    imageUrl,
+    imageUrl: uploadedImage?.imageUrl,
+    imageThumbnailUrl: uploadedImage?.thumbnailUrl,
     location: createGeoPoint(longitude, latitude),
     address,
     slaDeadline,
   });
+
+  try {
+    await notifyAdminsAboutNewComplaint({
+      complaintId: createdComplaint._id,
+      complaintTitle: createdComplaint.title,
+      complaintAddress: createdComplaint.address,
+      complaintIdLabel: createdComplaint.complaintId,
+    });
+  } catch (error) {
+    console.error("Failed to create admin notification for new complaint", error);
+  }
 
   return {
     complaint: createdComplaint,
@@ -183,13 +247,13 @@ export const updateComplaintWithAi = async ({
     throw new HttpError(403, "You can only update your own complaints");
   }
 
-  if (actorRole === "citizen" && complaint.status === "Resolved") {
-    throw new HttpError(400, "Resolved complaints cannot be updated");
+  if (actorRole === "citizen" && closedComplaintStatuses.includes(complaint.status)) {
+    throw new HttpError(400, "Closed complaints cannot be updated");
   }
 
   const existingComplaints = await ComplaintModel.find({
     _id: { $ne: complaint._id },
-    status: { $ne: "Resolved" },
+    status: { $nin: closedComplaintStatuses },
   }).sort({ createdAt: -1 });
 
   const aiResult = runAiPipeline({
@@ -198,7 +262,7 @@ export const updateComplaintWithAi = async ({
     categoryHint: category,
     existingComplaints,
   });
-  const imageUrl = image ? await uploadImageToCloudinary(image) : complaint.imageUrl;
+  const uploadedImage = image ? await uploadImageToCloudinary(image) : undefined;
   const slaDeadline = await calculateSlaDeadline(aiResult.category);
 
   complaint.title = title;
@@ -212,7 +276,8 @@ export const updateComplaintWithAi = async ({
   complaint.location = createGeoPoint(longitude, latitude);
   complaint.address = address;
   complaint.slaDeadline = slaDeadline;
-  complaint.imageUrl = imageUrl;
+  complaint.imageUrl = uploadedImage?.imageUrl || complaint.imageUrl;
+  complaint.imageThumbnailUrl = uploadedImage?.thumbnailUrl || complaint.imageThumbnailUrl;
 
   await complaint.save();
 
@@ -226,10 +291,16 @@ export const updateComplaintStatus = async ({
   complaintIdentifier,
   status,
   department,
+  remark,
+  actorId,
+  actorName,
 }: {
   complaintIdentifier: string;
-  status: "Pending" | "In Progress" | "Resolved";
+  status?: ComplaintStatus;
   department?: string;
+  remark?: string;
+  actorId?: string;
+  actorName?: string;
 }) => {
   const complaint = await findComplaintByIdentifier(complaintIdentifier);
 
@@ -237,16 +308,40 @@ export const updateComplaintStatus = async ({
     throw new HttpError(404, "Complaint not found");
   }
 
-  complaint.status = status;
+  const previousStatus = complaint.status;
+
+  if (status) {
+    complaint.status = status;
+  }
 
   if (department) {
     complaint.department = department;
   }
 
-  if (status === "Resolved") {
+  if (status === "Resolved" && previousStatus !== "Resolved") {
     complaint.severityScore = Math.max(0, complaint.severityScore - 20);
   }
 
+  const cleanedRemark = remark?.trim();
+  if (cleanedRemark) {
+    complaint.remarks.push({
+      message: cleanedRemark,
+      authorId: actorId,
+      authorName: actorName || "admin",
+      createdAt: new Date(),
+    });
+  }
+
   await complaint.save();
+
+  if (status && status !== previousStatus) {
+    await handleComplaintStatusSideEffects({
+      complaintId: complaint._id.toString(),
+      citizenId: complaint.citizenId.toString(),
+      title: complaint.title,
+      status,
+    });
+  }
+
   return complaint;
 };

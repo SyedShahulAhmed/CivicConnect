@@ -9,14 +9,24 @@ import {
   patchComplaintStatus,
   updateComplaint,
 } from "../controllers/complaintController";
+import { allowedImageMimeTypes, maxComplaintImageSizeBytes } from "../config/cloudinary";
 import { authMiddleware, optionalAuth } from "../middleware/authMiddleware";
+import { HttpError } from "../middleware/errorHandler";
 import { roleMiddleware } from "../middleware/roleMiddleware";
 
 const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: maxComplaintImageSizeBytes,
+  },
+  fileFilter: (_req, file, callback) => {
+    if (!allowedImageMimeTypes.includes(file.mimetype as (typeof allowedImageMimeTypes)[number])) {
+      callback(new HttpError(400, "Only JPG, JPEG, PNG, and WebP complaint images are allowed."));
+      return;
+    }
+
+    callback(null, true);
   },
 });
 

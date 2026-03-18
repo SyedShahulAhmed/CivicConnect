@@ -5,6 +5,7 @@ import type { NextFunction, Response } from "express";
 import { ComplaintModel } from "../models/Complaint";
 import { DepartmentModel } from "../models/Department";
 import type { AuthenticatedRequest } from "../middleware/authMiddleware";
+import { updateComplaintStatus } from "../services/complaintService";
 import { HttpError } from "../middleware/errorHandler";
 
 const assignSchema = Joi.object({
@@ -13,7 +14,7 @@ const assignSchema = Joi.object({
 
 const manageSchema = Joi.object({
   department: Joi.string().trim().min(3).max(120).optional(),
-  status: Joi.string().valid("Pending", "In Progress", "Resolved").optional(),
+  status: Joi.string().valid("Pending", "In Progress", "Resolved", "Rejected").optional(),
   remark: Joi.string().trim().max(500).optional().allow(""),
 }).or("department", "status", "remark");
 
@@ -87,39 +88,15 @@ export const manageComplaint = async (
 ): Promise<void> => {
   try {
     const payload = await manageSchema.validateAsync(req.body, { abortEarly: false });
-    const identifier = String(req.params.id);
-    const filter = mongoose.isValidObjectId(identifier)
-      ? { _id: identifier }
-      : { complaintId: identifier };
 
-    const complaint = await ComplaintModel.findOne(filter);
-
-    if (!complaint) {
-      throw new HttpError(404, "Complaint not found");
-    }
-
-    if (payload.department) {
-      complaint.department = payload.department;
-    }
-
-    if (payload.status) {
-      complaint.status = payload.status;
-      if (payload.status === "Resolved") {
-        complaint.severityScore = Math.max(0, complaint.severityScore - 20);
-      }
-    }
-
-    const cleanedRemark = payload.remark?.trim();
-    if (cleanedRemark) {
-      complaint.remarks.push({
-        message: cleanedRemark,
-        authorId: req.user?.id,
-        authorName: req.user?.email || "admin",
-        createdAt: new Date(),
-      });
-    }
-
-    await complaint.save();
+    const complaint = await updateComplaintStatus({
+      complaintIdentifier: String(req.params.id),
+      department: payload.department,
+      status: payload.status,
+      remark: payload.remark,
+      actorId: req.user?.id,
+      actorName: req.user?.email || "admin",
+    });
 
     res.json({
       success: true,
@@ -137,7 +114,7 @@ export const getSlaViolations = async (
 ): Promise<void> => {
   try {
     const complaints = await ComplaintModel.find({
-      status: { $ne: "Resolved" },
+      status: { $nin: ["Resolved", "Rejected"] },
       slaDeadline: { $lt: new Date() },
     }).sort({ slaDeadline: 1 });
 

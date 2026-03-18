@@ -11,6 +11,7 @@ import adminRoutes from "./routes/adminRoutes";
 import analyticsRoutes from "./routes/analyticsRoutes";
 import authRoutes from "./routes/authRoutes";
 import complaintRoutes from "./routes/complaintRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
 import { seedReferenceData } from "./services/complaintService";
 import { startSlaMonitor } from "./services/slaMonitor";
 
@@ -42,6 +43,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
