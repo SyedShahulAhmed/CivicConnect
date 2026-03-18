@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import FileUploader from "../components/FileUploader";
+import ImageLightbox from "../components/ImageLightbox";
 import MapView from "../components/MapView";
 import RemarksPanel from "../components/RemarksPanel";
+import { useToast } from "../hooks/useToast";
 import api, { extractApiError, type AiAnalysis, type Complaint } from "../services/api";
 
 const defaultPosition: [number, number] = [17.385, 78.4867];
@@ -19,6 +21,7 @@ const buildAnalysisSnapshot = (complaint: Complaint): AiAnalysis => ({
 const formatPercent = (value: number) => `${Math.round(value * 100)}%`;
 
 const SubmitComplaint = () => {
+  const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const complaintId = searchParams.get("complaintId");
   const [title, setTitle] = useState("");
@@ -33,6 +36,7 @@ const SubmitComplaint = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingComplaint, setIsLoadingComplaint] = useState(false);
+  const [showImageViewer, setShowImageViewer] = useState(false);
 
   useEffect(() => {
     if (!complaintId || submittedComplaint?.complaintId === complaintId) {
@@ -53,14 +57,16 @@ const SubmitComplaint = () => {
         setSelectedPosition([complaint.location.coordinates[1], complaint.location.coordinates[0]]);
         setSuccessMessage("You can improve the complaint details below and rerun the AI analysis.");
       } catch (loadError) {
-        setError(extractApiError(loadError));
+        const message = extractApiError(loadError);
+        setError(message);
+        showToast({ tone: "error", title: "Could not load complaint", message });
       } finally {
         setIsLoadingComplaint(false);
       }
     };
 
     void loadComplaint();
-  }, [complaintId, submittedComplaint?.complaintId]);
+  }, [complaintId, showToast, submittedComplaint?.complaintId]);
 
   useEffect(() => {
     if (complaintId || selectedPosition) {
@@ -102,9 +108,7 @@ const SubmitComplaint = () => {
     <section className="mx-auto max-w-7xl px-6 py-16">
       <div className="mb-8">
         <p className="text-sm font-semibold uppercase tracking-[0.28em] text-civic-teal">Complaint submission</p>
-        <h1 className="mt-2 font-serif text-4xl font-bold">
-          {mode === "update" ? "Improve your complaint and rerun the AI review" : "Report a civic issue in under a minute"}
-        </h1>
+        <h1 className="mt-2 font-serif text-4xl font-bold">{mode === "update" ? "Improve your complaint and rerun the AI review" : "Report a civic issue in under a minute"}</h1>
       </div>
       <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
         <form
@@ -151,15 +155,17 @@ const SubmitComplaint = () => {
 
               setSubmittedComplaint(response.data.data.complaint);
               setAiAnalysis(response.data.data.aiAnalysis);
-              setSuccessMessage(
-                mode === "update"
-                  ? "Complaint updated successfully. The AI analysis has been refreshed below."
-                  : "Complaint submitted successfully. Review the AI analysis below, then edit any detail if you want a better classification.",
-              );
+              const message = mode === "update"
+                ? "Complaint updated successfully. The AI analysis has been refreshed below."
+                : "Complaint submitted successfully. Review the AI analysis below, then edit any detail if you want a better classification.";
+              setSuccessMessage(message);
+              showToast({ tone: "success", title: mode === "update" ? "Complaint updated" : "Complaint submitted", message });
               setSearchParams({ complaintId: response.data.data.complaint.complaintId });
               setSelectedFile(null);
             } catch (submitError) {
-              setError(extractApiError(submitError));
+              const message = extractApiError(submitError);
+              setError(message);
+              showToast({ tone: "error", title: "Submission failed", message });
             } finally {
               setIsSubmitting(false);
             }
@@ -167,7 +173,7 @@ const SubmitComplaint = () => {
         >
           <div>
             <label className="mb-2 block text-sm font-semibold">Complaint title</label>
-            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Garbage overflowing near market" required />
+            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Garbage overflowing near market" required disabled={isSubmitting || isLoadingComplaint} />
           </div>
           <div>
             <label className="mb-2 block text-sm font-semibold">Description</label>
@@ -177,11 +183,12 @@ const SubmitComplaint = () => {
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Describe what happened, how long it has been happening, and any public safety impact."
               required
+              disabled={isSubmitting || isLoadingComplaint}
             />
           </div>
           <div>
             <label className="mb-2 block text-sm font-semibold">Category</label>
-            <select value={category} onChange={(event) => setCategory(event.target.value)}>
+            <select value={category} onChange={(event) => setCategory(event.target.value)} disabled={isSubmitting || isLoadingComplaint}>
               <option value="">Auto-detect with AI</option>
               <option value="garbage">Garbage</option>
               <option value="water">Water</option>
@@ -192,13 +199,13 @@ const SubmitComplaint = () => {
           </div>
           <div>
             <label className="mb-2 block text-sm font-semibold">Address or landmark</label>
-            <input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Ward 12 Public School" required />
+            <input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Ward 12 Public School" required disabled={isSubmitting || isLoadingComplaint} />
           </div>
           <FileUploader onChange={setSelectedFile} />
-          {error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p> : null}
-          {successMessage ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{successMessage}</p> : null}
+          {error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:bg-rose-950/40 dark:text-rose-200">{error}</p> : null}
+          {successMessage ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200">{successMessage}</p> : null}
           <div className="flex flex-wrap gap-3">
-            <button type="submit" disabled={isSubmitting || isLoadingComplaint} className="rounded-full bg-civic-blue px-5 py-3 text-sm font-bold text-white">
+            <button type="submit" disabled={isSubmitting || isLoadingComplaint} className="rounded-full bg-civic-blue px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">
               {isSubmitting ? (mode === "update" ? "Updating complaint..." : "Submitting complaint...") : mode === "update" ? "Update Complaint" : "Submit Complaint"}
             </button>
             {(submittedComplaint || complaintId) ? (
@@ -219,9 +226,7 @@ const SubmitComplaint = () => {
         <div className="space-y-4">
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
             <p className="text-sm font-semibold uppercase tracking-[0.28em] text-civic-teal">AI analysis</p>
-            <h2 className="mt-2 text-2xl font-bold">
-              {aiAnalysis ? "Your complaint intelligence summary" : "Submit once to see the AI review"}
-            </h2>
+            <h2 className="mt-2 text-2xl font-bold">{aiAnalysis ? "Your complaint intelligence summary" : "Submit once to see the AI review"}</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
               Civic Connect evaluates category, priority, sentiment, duplicate risk, and severity so you can refine the complaint before it moves deeper into the municipal workflow.
             </p>
@@ -249,9 +254,7 @@ const SubmitComplaint = () => {
                 <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
                   <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Duplicate probability</p>
                   <p className="mt-2 text-lg font-bold">{formatPercent(aiAnalysis.duplicateScore)}</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {aiAnalysis.isDuplicate ? "This may overlap with an existing complaint." : "No strong duplicate detected."}
-                  </p>
+                  <p className="mt-1 text-sm text-slate-500">{aiAnalysis.isDuplicate ? "This may overlap with an existing complaint." : "No strong duplicate detected."}</p>
                 </div>
               </div>
             ) : null}
@@ -261,19 +264,24 @@ const SubmitComplaint = () => {
                 <p className="mt-2">Department: {submittedComplaint.department}</p>
                 <p className="mt-1">Status: {submittedComplaint.status}</p>
                 <p className="mt-1">SLA deadline: {new Date(submittedComplaint.slaDeadline).toLocaleString()}</p>
-                {aiAnalysis?.relatedComplaintIds?.length ? (
-                  <p className="mt-2">Related complaints: {aiAnalysis.relatedComplaintIds.join(", ")}</p>
-                ) : null}
+                {aiAnalysis?.relatedComplaintIds?.length ? <p className="mt-2">Related complaints: {aiAnalysis.relatedComplaintIds.join(", ")}</p> : null}
               </div>
+            ) : null}
+
+            {submittedComplaint?.imageUrl ? (
+              <button
+                type="button"
+                onClick={() => setShowImageViewer(true)}
+                className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-950"
+              >
+                <img src={submittedComplaint.imageThumbnailUrl || submittedComplaint.imageUrl} alt={submittedComplaint.title} loading="lazy" className="h-48 w-full object-cover" />
+                <div className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">View uploaded complaint image</div>
+              </button>
             ) : null}
           </div>
 
           {submittedComplaint ? (
-            <RemarksPanel
-              remarks={submittedComplaint.remarks}
-              title="Department remarks"
-              emptyMessage="No department remarks have been added to this complaint yet."
-            />
+            <RemarksPanel remarks={submittedComplaint.remarks} title="Department remarks" emptyMessage="No department remarks have been added to this complaint yet." />
           ) : null}
 
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
@@ -306,15 +314,11 @@ const SubmitComplaint = () => {
               Detect My Location
             </button>
           </div>
-          <MapView
-            selectable
-            center={selectedPosition || defaultPosition}
-            selectedPosition={selectedPosition}
-            onLocationSelect={setSelectedPosition}
-            heightClassName="h-[32rem]"
-          />
+          <MapView selectable center={selectedPosition || defaultPosition} selectedPosition={selectedPosition} onLocationSelect={setSelectedPosition} heightClassName="h-[32rem]" />
         </div>
       </div>
+
+      <ImageLightbox imageUrl={submittedComplaint?.imageUrl} title={submittedComplaint?.title} isOpen={showImageViewer} onClose={() => setShowImageViewer(false)} />
     </section>
   );
 };

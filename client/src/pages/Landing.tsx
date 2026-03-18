@@ -14,9 +14,10 @@ import {
 } from "recharts";
 
 import ComplaintCard from "../components/ComplaintCard";
-import MapView from "../components/MapView";
 import StatsCard from "../components/StatsCard";
+import MapView from "../components/MapView";
 import api, { type AnalyticsPoint, type Complaint } from "../services/api";
+import { isClosedComplaint } from "../utils/complaints";
 import { useAuth } from "../hooks/useAuth";
 import { FiMapPin, FiCpu, FiGitBranch, FiCheckCircle } from "react-icons/fi";
 import {
@@ -98,9 +99,7 @@ const Landing = () => {
   const resolvedCount = complaints.filter(
     (complaint) => complaint.status === "Resolved",
   ).length;
-  const activeCount = complaints.filter(
-    (complaint) => complaint.status !== "Resolved",
-  ).length;
+  const activeCount = complaints.filter((complaint) => !isClosedComplaint(complaint.status)).length;
   const avgResolutionHours = complaints.length
     ? Math.round(
         complaints.reduce((sum, complaint) => {
@@ -597,3 +596,5 @@ const Landing = () => {
 };
 
 export default Landing;
+
+

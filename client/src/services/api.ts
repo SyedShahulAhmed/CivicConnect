@@ -29,10 +29,11 @@ export interface Complaint {
   severityScore: number;
   sentimentScore: number;
   duplicateScore: number;
-  status: "Pending" | "In Progress" | "Resolved";
+  status: "Pending" | "In Progress" | "Resolved" | "Rejected";
   department: string;
   citizenId?: User | string;
   imageUrl?: string;
+  imageThumbnailUrl?: string;
   location: {
     type: "Point";
     coordinates: [number, number];
@@ -42,6 +43,16 @@ export interface Complaint {
   createdAt: string;
   updatedAt: string;
   remarks: ComplaintRemark[];
+}
+
+export interface AppNotification {
+  _id: string;
+  complaintId: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AiAnalysis {

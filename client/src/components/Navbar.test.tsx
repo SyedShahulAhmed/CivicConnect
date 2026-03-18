@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import Navbar from "./Navbar";
 import { AuthContext } from "../context/AuthContext";
+import { NotificationContext } from "../context/NotificationContext";
 
 it("shows login and register links for guests", () => {
   render(
@@ -18,7 +19,17 @@ it("shows login and register links for guests", () => {
           logout: () => undefined,
         }}
       >
-        <Navbar />
+        <NotificationContext.Provider
+          value={{
+            notifications: [],
+            unreadCount: 0,
+            isLoading: false,
+            refreshNotifications: async () => undefined,
+            markAsRead: async () => undefined,
+          }}
+        >
+          <Navbar />
+        </NotificationContext.Provider>
       </AuthContext.Provider>
     </MemoryRouter>,
   );

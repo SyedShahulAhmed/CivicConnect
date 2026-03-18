@@ -97,7 +97,7 @@ const AdminAnalytics = () => {
   }, []);
 
   const activeComplaints = useMemo(
-    () => complaints.filter((complaint) => complaint.status !== "Resolved"),
+    () => complaints.filter((complaint) => complaint.status !== "Resolved" && complaint.status !== "Rejected"),
     [complaints],
   );
 
@@ -106,6 +106,7 @@ const AdminAnalytics = () => {
       { label: "Pending", count: complaints.filter((complaint) => complaint.status === "Pending").length },
       { label: "In Progress", count: complaints.filter((complaint) => complaint.status === "In Progress").length },
       { label: "Resolved", count: complaints.filter((complaint) => complaint.status === "Resolved").length },
+      { label: "Rejected", count: complaints.filter((complaint) => complaint.status === "Rejected").length },
     ],
     [complaints],
   );
@@ -376,3 +377,4 @@ const AdminAnalytics = () => {
 };
 
 export default AdminAnalytics;
+
