@@ -21,6 +21,31 @@ const loginSchema = Joi.object({
   password: Joi.string().required(),
 });
 
+const buildUserResponse = (user: {
+  id?: string;
+  _id?: { toString(): string };
+  name: string;
+  email: string;
+  role: "citizen" | "admin";
+  ward: string;
+  address: string;
+  falseComplaintCount?: number;
+  isSuspended?: boolean;
+  suspendedAt?: Date | null;
+  suspensionReason?: string | null;
+}) => ({
+  id: user.id || user._id?.toString(),
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  ward: user.ward,
+  address: user.address,
+  falseComplaintCount: user.falseComplaintCount || 0,
+  isSuspended: Boolean(user.isSuspended),
+  suspendedAt: user.suspendedAt || undefined,
+  suspensionReason: user.suspensionReason || undefined,
+});
+
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const payload = await registerSchema.validateAsync(req.body, { abortEarly: false });
@@ -49,14 +74,7 @@ export const register = async (req: Request, res: Response, next: NextFunction):
       success: true,
       data: {
         token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          ward: user.ward,
-          address: user.address,
-        },
+        user: buildUserResponse(user),
       },
     });
   } catch (error) {
@@ -71,6 +89,10 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
 
     if (!user) {
       throw new HttpError(401, "Invalid email or password");
+    }
+
+    if (user.isSuspended) {
+      throw new HttpError(403, user.suspensionReason || "Your account has been suspended because of multiple false complaints.");
     }
 
     const isPasswordValid = await bcrypt.compare(payload.password, user.password);
@@ -89,14 +111,7 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
       success: true,
       data: {
         token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          ward: user.ward,
-          address: user.address,
-        },
+        user: buildUserResponse(user),
       },
     });
   } catch (error) {
@@ -118,9 +133,10 @@ export const getCurrentUser = async (
 
     res.json({
       success: true,
-      data: user,
+      data: buildUserResponse(user),
     });
   } catch (error) {
     next(error);
   }
 };
+

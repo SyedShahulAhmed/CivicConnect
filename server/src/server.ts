@@ -10,8 +10,10 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import adminRoutes from "./routes/adminRoutes";
 import analyticsRoutes from "./routes/analyticsRoutes";
 import authRoutes from "./routes/authRoutes";
+import citizenRoutes from "./routes/citizenRoutes";
 import complaintRoutes from "./routes/complaintRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
+import publicRoutes from "./routes/publicRoutes";
 import { seedReferenceData } from "./services/complaintService";
 import { startSlaMonitor } from "./services/slaMonitor";
 
@@ -44,6 +46,8 @@ app.use("/api/complaints", complaintRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/public", publicRoutes);
+app.use("/api/citizen", citizenRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -33,6 +33,22 @@ const userSchema = new Schema(
       required: true,
       trim: true,
     },
+    falseComplaintCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    isSuspended: {
+      type: Boolean,
+      default: false,
+    },
+    suspendedAt: {
+      type: Date,
+    },
+    suspensionReason: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -43,4 +59,3 @@ export type User = InferSchemaType<typeof userSchema>;
 export type UserDocument = HydratedDocument<User>;
 
 export const UserModel = model<User>("User", userSchema);
-

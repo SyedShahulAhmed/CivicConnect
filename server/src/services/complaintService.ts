@@ -66,6 +66,7 @@ const categoryDepartmentMap: Record<ComplaintCategory, string> = {
 };
 
 const closedComplaintStatuses: ComplaintStatus[] = ["Resolved", "Rejected"];
+const FALSE_COMPLAINT_SUSPENSION_THRESHOLD = Math.max(1, Number(process.env.FALSE_COMPLAINT_SUSPENSION_THRESHOLD || 3));
 const complaintStatusMessages: Record<ComplaintStatus, string> = {
   Pending: "Your complaint has been received and is awaiting review.",
   "In Progress": "The responsible department has started working on your complaint.",
@@ -77,6 +78,47 @@ const findComplaintByIdentifier = async (complaintIdentifier: string) => {
   return ComplaintModel.findOne(
     complaintIdentifier.startsWith("CMP-") ? { complaintId: complaintIdentifier } : { _id: complaintIdentifier },
   );
+};
+
+const assertCitizenCanSubmitComplaints = async (citizenId: string | Types.ObjectId) => {
+  const citizen = await UserModel.findById(citizenId).lean();
+
+  if (!citizen) {
+    throw new HttpError(404, "Citizen account not found");
+  }
+
+  if (citizen.role === "citizen" && citizen.isSuspended) {
+    throw new HttpError(
+      403,
+      citizen.suspensionReason || "Your account has been suspended because of multiple false complaints.",
+    );
+  }
+
+  return citizen;
+};
+
+const syncCitizenSuspensionState = async (citizenId: string) => {
+  const citizen = await UserModel.findById(citizenId);
+
+  if (!citizen || citizen.role !== "citizen") {
+    return;
+  }
+
+  const falseComplaintCount = await ComplaintModel.countDocuments({
+    citizenId,
+    status: "Rejected",
+  });
+
+  const shouldSuspend = falseComplaintCount >= FALSE_COMPLAINT_SUSPENSION_THRESHOLD;
+
+  citizen.falseComplaintCount = falseComplaintCount;
+  citizen.isSuspended = shouldSuspend;
+  citizen.suspendedAt = shouldSuspend ? citizen.suspendedAt || new Date() : undefined;
+  citizen.suspensionReason = shouldSuspend
+    ? `Your account has been suspended after ${falseComplaintCount} rejected complaints.`
+    : undefined;
+
+  await citizen.save();
 };
 
 const handleComplaintStatusSideEffects = async ({
@@ -165,6 +207,8 @@ export const createComplaintWithAi = async ({
   citizenId: string | Types.ObjectId;
   image?: Express.Multer.File;
 }) => {
+  await assertCitizenCanSubmitComplaints(citizenId);
+
   const existingComplaints = await ComplaintModel.find({
     status: { $nin: closedComplaintStatuses },
   }).sort({ createdAt: -1 });
@@ -245,6 +289,10 @@ export const updateComplaintWithAi = async ({
 
   if (actorRole === "citizen" && complaint.citizenId.toString() !== actorId) {
     throw new HttpError(403, "You can only update your own complaints");
+  }
+
+  if (actorRole === "citizen") {
+    await assertCitizenCanSubmitComplaints(actorId);
   }
 
   if (actorRole === "citizen" && closedComplaintStatuses.includes(complaint.status)) {
@@ -341,6 +389,8 @@ export const updateComplaintStatus = async ({
       title: complaint.title,
       status,
     });
+
+    await syncCitizenSuspensionState(complaint.citizenId.toString());
   }
 
   return complaint;

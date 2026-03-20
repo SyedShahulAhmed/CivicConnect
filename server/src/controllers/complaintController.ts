@@ -28,6 +28,8 @@ const statusSchema = Joi.object({
   department: Joi.string().trim().max(120).optional(),
 });
 
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export const createComplaint = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -106,6 +108,18 @@ export const getComplaints = async (
 
     if (req.query.ward) {
       filters.address = { $regex: String(req.query.ward), $options: "i" };
+    }
+
+    if (req.query.query) {
+      const normalizedQuery = escapeRegex(String(req.query.query).trim());
+      if (normalizedQuery) {
+        filters.$or = [
+          { title: { $regex: normalizedQuery, $options: "i" } },
+          { description: { $regex: normalizedQuery, $options: "i" } },
+          { address: { $regex: normalizedQuery, $options: "i" } },
+          { complaintId: { $regex: normalizedQuery, $options: "i" } },
+        ];
+      }
     }
 
     if (req.query.mine === "true") {
