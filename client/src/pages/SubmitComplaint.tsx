@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import FileUploader from "../components/FileUploader";
 import ImageLightbox from "../components/ImageLightbox";
+import Loader from "../components/Loader";
 import MapView from "../components/MapView";
 import RemarksPanel from "../components/RemarksPanel";
 import { useToast } from "../hooks/useToast";
@@ -103,6 +104,14 @@ const SubmitComplaint = () => {
     setSearchParams({});
     setSelectedPosition(null);
   };
+
+  if (isLoadingComplaint && complaintId && !submittedComplaint) {
+    return (
+      <section className="mx-auto max-w-7xl px-6 py-16">
+        <Loader label="Loading complaint details..." className="min-h-[40vh]" />
+      </section>
+    );
+  }
 
   return (
     <section className="mx-auto max-w-7xl px-6 py-16">
@@ -324,3 +333,4 @@ const SubmitComplaint = () => {
 };
 
 export default SubmitComplaint;
+

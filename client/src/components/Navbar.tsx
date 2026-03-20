@@ -18,6 +18,7 @@ import {
   FiBell,
 } from "react-icons/fi";
 
+import Loader from "./Loader";
 import { useAuth } from "../hooks/useAuth";
 import { useNotifications } from "../hooks/useNotifications";
 
@@ -179,9 +180,7 @@ const Navbar = () => {
 
                     <div className="mt-2 max-h-96 space-y-2 overflow-y-auto">
                       {isLoading ? (
-                        <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700">
-                          Loading notifications...
-                        </div>
+                        <Loader label="Loading notifications..." className="py-10" />
                       ) : notifications.length ? (
                         notifications.map((notification) => (
                           <button
@@ -355,3 +354,4 @@ const Navbar = () => {
 };
 
 export default Navbar;
+

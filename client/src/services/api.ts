@@ -1,6 +1,7 @@
-import axios from "axios";
+﻿import axios from "axios";
 
 export type UserRole = "citizen" | "admin";
+export type TrendDirection = "up" | "down" | "neutral";
 
 export interface User {
   _id?: string;
@@ -10,6 +11,10 @@ export interface User {
   role: UserRole;
   ward: string;
   address: string;
+  falseComplaintCount?: number;
+  isSuspended?: boolean;
+  suspendedAt?: string;
+  suspensionReason?: string;
 }
 
 export interface ComplaintRemark {
@@ -42,6 +47,7 @@ export interface Complaint {
   slaDeadline: string;
   createdAt: string;
   updatedAt: string;
+  resolvedAt?: string;
   remarks: ComplaintRemark[];
 }
 
@@ -53,6 +59,14 @@ export interface AppNotification {
   read: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TrendMetric {
+  value: number;
+  current: number;
+  previous: number;
+  trend: number;
+  direction: TrendDirection;
 }
 
 export interface AiAnalysis {
@@ -79,6 +93,7 @@ export interface AnalyticsPoint {
   ward?: string;
   label?: string;
   count: number;
+  formattedLabel?: string;
 }
 
 export interface SeverityPoint {
@@ -120,6 +135,10 @@ export const extractApiError = (error: unknown): string => {
       return "Cannot reach the backend API. Start the server, check VITE_API_URL, and confirm CORS allows the frontend origin.";
     }
 
+    if (error.response.status === 429) {
+      return "Too many requests. Please try again later.";
+    }
+
     return (error.response.data as { message?: string } | undefined)?.message || error.message;
   }
 
@@ -131,3 +150,7 @@ export const extractApiError = (error: unknown): string => {
 };
 
 export default api;
+
+
+
+

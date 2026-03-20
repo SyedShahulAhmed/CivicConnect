@@ -99,7 +99,7 @@ const ComplaintCard = ({ complaint, showCitizen = false, showTimeline = false }:
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-4 rounded-3xl bg-slate-50 p-5 dark:bg-slate-800/70">
+          <div className="flex h-[300px] flex-col gap-4 rounded-3xl bg-slate-50 p-5 dark:bg-slate-800/70">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Status</p>
               <span className={`mt-3 inline-flex rounded-full px-4 py-2 text-sm font-semibold ${complaintStatusTone[complaint.status]}`}>
@@ -124,7 +124,7 @@ const ComplaintCard = ({ complaint, showCitizen = false, showTimeline = false }:
 
         {showCitizen && typeof complaint.citizenId === "object" && complaint.citizenId ? (
           <div className="mt-5 border-t border-slate-200 pt-4 text-sm text-slate-500 dark:border-slate-800">
-            Reported by <span className="font-medium text-slate-700 dark:text-slate-200">{complaint.citizenId.name}</span> • Ward {complaint.citizenId.ward}
+            Reported by <span className="font-medium text-slate-700 dark:text-slate-200">{complaint.citizenId.name}</span> ï¿½ Ward {complaint.citizenId.ward}
           </div>
         ) : null}
 
