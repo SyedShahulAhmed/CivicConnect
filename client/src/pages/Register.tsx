@@ -17,9 +17,7 @@ import { extractApiError } from "../services/api";
 const Register = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
-
   const [showPassword, setShowPassword] = useState(false);
-
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -27,10 +25,8 @@ const Register = () => {
     ward: "",
     address: "",
   });
-
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const updateField = (field: string, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
@@ -68,7 +64,6 @@ const Register = () => {
             }
           }}
         >
-
           {/* FULL NAME */}
 
           <div>
@@ -219,7 +214,6 @@ const Register = () => {
               {isSubmitting ? "Creating account..." : "Register"}
             </button>
           </div>
-
         </form>
 
         {/* LOGIN LINK */}
@@ -233,7 +227,6 @@ const Register = () => {
             Login
           </Link>
         </p>
-
       </div>
     </section>
   );
