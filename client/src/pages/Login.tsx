@@ -9,20 +9,15 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [showPassword, setShowPassword] = useState(false);
-
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   return (
     <section className="mx-auto max-w-xl px-6 py-20">
-
       <div className="rounded-3xl border border-slate-200 bg-white p-10 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-
         <p className="text-sm font-semibold uppercase tracking-[0.28em] text-civic-teal">
           Secure Sign In
         </p>
@@ -56,7 +51,7 @@ const Login = () => {
 
               navigate(
                 (location.state as { from?: string } | null)?.from ||
-                  fallbackRoute
+                  fallbackRoute,
               );
             } catch (authError) {
               setError(extractApiError(authError));
@@ -65,7 +60,6 @@ const Login = () => {
             }
           }}
         >
-
           {/* EMAIL FIELD */}
 
           <div>
@@ -74,7 +68,6 @@ const Login = () => {
             </label>
 
             <div className="relative">
-
               {/* Left icon */}
               <FiMail
                 size={18}
@@ -101,7 +94,6 @@ const Login = () => {
                   <FiX size={16} />
                 </button>
               )}
-
             </div>
           </div>
 
@@ -113,7 +105,6 @@ const Login = () => {
             </label>
 
             <div className="relative">
-
               {/* Lock icon */}
 
               <FiLock
@@ -139,7 +130,6 @@ const Login = () => {
               >
                 {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
               </button>
-
             </div>
           </div>
 
@@ -160,7 +150,6 @@ const Login = () => {
           >
             {isSubmitting ? "Signing in..." : "Login"}
           </button>
-
         </form>
 
         {/* REGISTER LINK */}
@@ -174,9 +163,7 @@ const Login = () => {
             Create an account
           </Link>
         </p>
-
       </div>
-
     </section>
   );
 };
