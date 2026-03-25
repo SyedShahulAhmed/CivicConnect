@@ -100,6 +100,24 @@ const alertNotificationTypes: NotificationType[] = [
   "complaint_created",
   "admin_message",
 ];
+const slaAlertPattern = /(sla|overdue|deadline|violation)/i;
+const resolvedPattern = /(resolved|closed|issue resolved|status resolved)/i;
+
+const isAlertNotification = (notification: AppNotification) => {
+  if (alertNotificationTypes.includes(notification.type)) {
+    return true;
+  }
+
+  return slaAlertPattern.test(`${notification.title} ${notification.message}`);
+};
+
+const isResolvedNotification = (notification: AppNotification) => {
+  if (notification.type === "resolved") {
+    return true;
+  }
+
+  return resolvedPattern.test(`${notification.title} ${notification.message}`);
+};
 
 export const filterNotifications = (notifications: AppNotification[], tab: NotificationTab) =>
   notifications.filter((notification) => {
@@ -108,11 +126,11 @@ export const filterNotifications = (notifications: AppNotification[], tab: Notif
     }
 
     if (tab === "alerts") {
-      return alertNotificationTypes.includes(notification.type);
+      return isAlertNotification(notification);
     }
 
     if (tab === "resolved") {
-      return notification.type === "resolved";
+      return isResolvedNotification(notification);
     }
 
     return true;
