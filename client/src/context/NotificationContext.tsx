@@ -1,7 +1,21 @@
-import { createContext, useEffect, useState, type PropsWithChildren } from "react";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from "react";
 
 import { useAuth } from "../hooks/useAuth";
-import api, { type AppNotification } from "../services/api";
+import type { AppNotification } from "../services/api";
+import {
+  deleteNotification as deleteNotificationRequest,
+  getNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from "../services/notificationService";
+import { getUnreadNotificationCount } from "../utils/notifications";
 
 interface NotificationContextValue {
   notifications: AppNotification[];
@@ -9,74 +23,105 @@ interface NotificationContextValue {
   isLoading: boolean;
   refreshNotifications: () => Promise<void>;
   markAsRead: (notificationId: string) => Promise<void>;
+  markManyAsRead: (notificationIds: string[]) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  deleteNotification: (notificationId: string) => Promise<void>;
 }
 
 export const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
 
+const previewLimit = 24;
+
 export const NotificationProvider = ({ children }: PropsWithChildren) => {
   const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  const refreshNotifications = async () => {
+  const unreadCount = useMemo(() => getUnreadNotificationCount(notifications), [notifications]);
+
+  const refreshNotifications = useCallback(async () => {
     if (!isAuthenticated) {
       setNotifications([]);
-      setUnreadCount(0);
       return;
     }
 
     setIsLoading(true);
     try {
-      const response = await api.get<{ data: { items: AppNotification[]; unreadCount: number } }>("/notifications?limit=12");
-      setNotifications(response.data.data.items);
-      setUnreadCount(response.data.data.unreadCount);
+      const response = await getNotifications({
+        limit: previewLimit,
+        page: 1,
+      });
+      setNotifications(response.items);
     } catch {
       setNotifications([]);
-      setUnreadCount(0);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
-  const markAsRead = async (notificationId: string) => {
-    await api.patch(`/notifications/${notificationId}/read`);
-    setNotifications((current) => current.map((item) => (item._id === notificationId ? { ...item, read: true } : item)));
-    setUnreadCount((current) => Math.max(0, current - 1));
-  };
+  const markAsRead = useCallback(async (notificationId: string) => {
+    await markNotificationAsRead(notificationId);
+    setNotifications((current) =>
+      current.map((item) =>
+        item._id === notificationId ? { ...item, isRead: true } : item,
+      ),
+    );
+  }, []);
+
+  const markManyAsRead = useCallback(async (notificationIds: string[]) => {
+    const uniqueIds = Array.from(new Set(notificationIds));
+
+    if (!uniqueIds.length) {
+      return;
+    }
+
+    await Promise.all(uniqueIds.map((notificationId) => markNotificationAsRead(notificationId)));
+    setNotifications((current) =>
+      current.map((item) =>
+        uniqueIds.includes(item._id) ? { ...item, isRead: true } : item,
+      ),
+    );
+  }, []);
+
+  const markAllAsRead = useCallback(async () => {
+    await markAllNotificationsAsRead();
+    setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
+  }, []);
+
+  const deleteNotification = useCallback(async (notificationId: string) => {
+    await deleteNotificationRequest(notificationId);
+    setNotifications((current) => current.filter((item) => item._id !== notificationId));
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
       setNotifications([]);
-      setUnreadCount(0);
       return;
     }
 
-    const runLoad = async () => {
-      await refreshNotifications();
-    };
-
-    void runLoad();
+    void refreshNotifications();
     const intervalId = window.setInterval(() => {
-      void runLoad();
+      void refreshNotifications();
     }, 30000);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, refreshNotifications]);
 
-  return (
-    <NotificationContext.Provider
-      value={{
-        notifications,
-        unreadCount,
-        isLoading,
-        refreshNotifications,
-        markAsRead,
-      }}
-    >
-      {children}
-    </NotificationContext.Provider>
+  const value = useMemo<NotificationContextValue>(
+    () => ({
+      notifications,
+      unreadCount,
+      isLoading,
+      refreshNotifications,
+      markAsRead,
+      markManyAsRead,
+      markAllAsRead,
+      deleteNotification,
+    }),
+    [deleteNotification, isLoading, markAllAsRead, markAsRead, markManyAsRead, notifications, refreshNotifications, unreadCount],
   );
+
+  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 };

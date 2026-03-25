@@ -1,4 +1,11 @@
-import { createContext, useEffect, useState, type PropsWithChildren } from "react";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from "react";
 
 import api, { type AuthResponse, type User } from "../services/api";
 
@@ -18,6 +25,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => void;
+  updateCurrentUser: (user: User) => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -25,6 +33,10 @@ export const AuthContext = createContext<AuthContextValue | undefined>(undefined
 const persistSession = (session: AuthResponse) => {
   localStorage.setItem("civic-connect-token", session.token);
   localStorage.setItem("civic-connect-user", JSON.stringify(session.user));
+};
+
+const persistUser = (user: User) => {
+  localStorage.setItem("civic-connect-user", JSON.stringify(user));
 };
 
 const clearSession = () => {
@@ -50,6 +62,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       try {
         const response = await api.get<{ data: User }>("/auth/me");
         setUser(response.data.data);
+        persistUser(response.data.data);
       } catch {
         clearSession();
         setToken(null);
@@ -62,41 +75,46 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     void restoreSession();
   }, [token]);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const response = await api.post<{ data: AuthResponse }>("/auth/login", { email, password });
     const session = response.data.data;
     persistSession(session);
     setToken(session.token);
     setUser(session.user);
-  };
+  }, []);
 
-  const register = async (payload: RegisterPayload) => {
+  const register = useCallback(async (payload: RegisterPayload) => {
     const response = await api.post<{ data: AuthResponse }>("/auth/register", payload);
     const session = response.data.data;
     persistSession(session);
     setToken(session.token);
     setUser(session.user);
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     clearSession();
     setToken(null);
     setUser(null);
-  };
+  }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        isAuthenticated: Boolean(user && token),
-        isLoading,
-        login,
-        register,
-        logout,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const updateCurrentUser = useCallback((nextUser: User) => {
+    setUser(nextUser);
+    persistUser(nextUser);
+  }, []);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      token,
+      isAuthenticated: Boolean(user && token),
+      isLoading,
+      login,
+      register,
+      logout,
+      updateCurrentUser,
+    }),
+    [isLoading, login, logout, register, token, updateCurrentUser, user],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

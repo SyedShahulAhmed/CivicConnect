@@ -8,8 +8,15 @@ const categoryColors: Record<Complaint["category"], string> = {
   garbage: "#16A34A",
   water: "#0284C7",
   electricity: "#F59E0B",
-  road: "#DC2626",
+  road: "#EA580C",
   drainage: "#7C3AED",
+  streetlight: "#EAB308",
+  traffic: "#E11D48",
+  public_transport: "#06B6D4",
+  park: "#65A30D",
+  encroachment: "#C026D3",
+  pollution: "#475569",
+  stray_animals: "#0F766E",
 };
 
 const createMarkerIcon = (color: string) =>
@@ -117,7 +124,7 @@ const MapView = ({
             <Popup>
               <div className="space-y-1">
                 <p className="font-semibold">{complaint.title}</p>
-                <p className="text-sm">{complaint.category} Â· {complaint.status}</p>
+                <p className="text-sm">{complaint.category} • {complaint.status}</p>
                 <p className="text-sm">{complaint.address}</p>
               </div>
             </Popup>

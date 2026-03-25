@@ -1,7 +1,13 @@
-﻿import axios from "axios";
+import axios from "axios";
 
 export type UserRole = "citizen" | "admin";
 export type TrendDirection = "up" | "down" | "neutral";
+export type NotificationType =
+  | "complaint_created"
+  | "status_updated"
+  | "sla_warning"
+  | "resolved"
+  | "admin_message";
 
 export interface User {
   _id?: string;
@@ -29,7 +35,19 @@ export interface Complaint {
   complaintId: string;
   title: string;
   description: string;
-  category: "garbage" | "water" | "electricity" | "road" | "drainage";
+  category:
+    | "garbage"
+    | "water"
+    | "electricity"
+    | "road"
+    | "drainage"
+    | "streetlight"
+    | "traffic"
+    | "public_transport"
+    | "park"
+    | "encroachment"
+    | "pollution"
+    | "stray_animals";
   priority: "Low" | "Medium" | "High";
   severityScore: number;
   sentimentScore: number;
@@ -53,10 +71,11 @@ export interface Complaint {
 
 export interface AppNotification {
   _id: string;
-  complaintId: string;
+  complaintId?: string;
   title: string;
   message: string;
-  read: boolean;
+  type: NotificationType;
+  isRead: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -71,6 +90,7 @@ export interface TrendMetric {
 
 export interface AiAnalysis {
   category: Complaint["category"];
+  department: string;
   categoryConfidence?: number;
   priority: Complaint["priority"];
   sentimentScore: number;
@@ -150,7 +170,3 @@ export const extractApiError = (error: unknown): string => {
 };
 
 export default api;
-
-
-
-

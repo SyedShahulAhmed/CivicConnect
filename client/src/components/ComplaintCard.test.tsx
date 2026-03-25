@@ -1,20 +1,20 @@
 import { render, screen } from "@testing-library/react";
 
-import ComplaintCard from "./ComplaintCard";
 import type { Complaint } from "../services/api";
+import ComplaintCard from "./ComplaintCard";
 
 const complaint: Complaint = {
   _id: "1",
   complaintId: "CMP-123456-4321",
   title: "Streetlight outage near park",
   description: "The streetlight has been off for two nights and the area feels unsafe.",
-  category: "electricity",
+  category: "streetlight",
   priority: "High",
   severityScore: 92,
   sentimentScore: 0.83,
-  duplicateScore: 0.2,
+  duplicateScore: 0.71,
   status: "In Progress",
-  department: "Electrical Maintenance Wing",
+  department: "Electrical Maintenance",
   citizenId: {
     id: "user-1",
     name: "Asha",
@@ -34,11 +34,14 @@ const complaint: Complaint = {
   remarks: [],
 };
 
-it("renders complaint details and timeline information", () => {
+it("renders upgraded complaint details and timeline information", () => {
   render(<ComplaintCard complaint={complaint} showCitizen showTimeline />);
 
   expect(screen.getByText("Streetlight outage near park")).toBeInTheDocument();
+  expect(screen.getByText("Streetlight")).toBeInTheDocument();
   expect(screen.getByText("92/100")).toBeInTheDocument();
+  expect(screen.getByText("Electrical Maintenance")).toBeInTheDocument();
+  expect(screen.getByText("Similar reports found")).toBeInTheDocument();
   expect(screen.getByText(/Reported by Asha/)).toBeInTheDocument();
   expect(screen.getByText("AI Analysis Complete")).toBeInTheDocument();
 });

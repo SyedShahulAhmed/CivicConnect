@@ -13,6 +13,7 @@ const defaultPosition: [number, number] = [17.385, 78.4867];
 
 const buildAnalysisSnapshot = (complaint: Complaint): AiAnalysis => ({
   category: complaint.category,
+  department: complaint.department,
   priority: complaint.priority,
   sentimentScore: complaint.sentimentScore,
   duplicateScore: complaint.duplicateScore,
@@ -204,6 +205,13 @@ const SubmitComplaint = () => {
               <option value="electricity">Electricity</option>
               <option value="road">Road</option>
               <option value="drainage">Drainage</option>
+              <option value="streetlight">Streetlight</option>
+              <option value="traffic">Traffic</option>
+              <option value="public_transport">Public Transport</option>
+              <option value="park">Park</option>
+              <option value="encroachment">Encroachment</option>
+              <option value="pollution">Pollution</option>
+              <option value="stray_animals">Stray Animals</option>
             </select>
           </div>
           <div>

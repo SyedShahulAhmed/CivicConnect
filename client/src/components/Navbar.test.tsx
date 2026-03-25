@@ -17,6 +17,7 @@ it("shows login and register links for guests", () => {
           login: async () => undefined,
           register: async () => undefined,
           logout: () => undefined,
+          updateCurrentUser: () => undefined,
         }}
       >
         <NotificationContext.Provider
@@ -26,6 +27,9 @@ it("shows login and register links for guests", () => {
             isLoading: false,
             refreshNotifications: async () => undefined,
             markAsRead: async () => undefined,
+            markManyAsRead: async () => undefined,
+            markAllAsRead: async () => undefined,
+            deleteNotification: async () => undefined,
           }}
         >
           <Navbar />
