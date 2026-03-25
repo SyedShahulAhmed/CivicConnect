@@ -1,103 +1,134 @@
-const trainingData = [
-  {
-    category: "garbage",
-    samples: [
-      "garbage overflow near market",
-      "trash bins are full",
-      "waste not collected in the street",
-      "garbage smell in ward",
-    ],
-  },
-  {
-    category: "water",
-    samples: [
-      "water pipe leakage",
-      "no water supply today",
-      "tap water problem in lane",
-      "water tanker needed immediately",
-    ],
-  },
-  {
-    category: "electricity",
-    samples: [
-      "streetlight not working",
-      "power outage in neighborhood",
-      "electric pole spark issue",
-      "transformer failure near road",
-    ],
-  },
-  {
-    category: "road",
-    samples: [
-      "road pothole is dangerous",
-      "damaged street surface needs repair",
-      "main road broken after rain",
-      "road crack causing accidents",
-    ],
-  },
-  {
-    category: "drainage",
-    samples: [
-      "drain blocked with sewage",
-      "drainage overflow near houses",
-      "storm water drain clogged",
-      "dirty water from drain coming out",
-    ],
-  },
-] as const;
+import trainingDataRaw from "./trainingData.json";
+import {
+  complaintCategories,
+  departmentByCategory,
+  type ComplaintCategory,
+  type ComplaintDepartment,
+} from "./constants";
+import { extractComplaintFeatures } from "./textUtils";
 
-const tokenize = (text: string): string[] =>
-  text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter((token) => token.length > 1);
+type TrainingDataEntry = {
+  category: ComplaintCategory;
+  department: ComplaintDepartment;
+  samples: string[];
+};
 
-const vocabulary = new Set(trainingData.flatMap((entry) => entry.samples.flatMap(tokenize)));
-const totalSamples = trainingData.reduce((sum, item) => sum + item.samples.length, 0);
+type CategoryModel = {
+  category: ComplaintCategory;
+  department: ComplaintDepartment;
+  counts: Map<string, number>;
+  totalFeatureWeight: number;
+  prior: number;
+};
 
-const categoryTokenCounts = trainingData.map((entry) => {
+const isComplaintCategory = (value: string): value is ComplaintCategory => {
+  return (complaintCategories as readonly string[]).includes(value);
+};
+
+const isTrainingDataEntry = (entry: unknown): entry is TrainingDataEntry => {
+  if (!entry || typeof entry !== "object") {
+    return false;
+  }
+
+  const candidate = entry as Partial<TrainingDataEntry>;
+
+  return Boolean(
+    typeof candidate.category === "string" &&
+      isComplaintCategory(candidate.category) &&
+      candidate.department === departmentByCategory[candidate.category] &&
+      Array.isArray(candidate.samples) &&
+      candidate.samples.every((sample) => typeof sample === "string" && sample.trim().length >= 4),
+  );
+};
+
+const trainingData = (trainingDataRaw as unknown[]).filter(isTrainingDataEntry);
+
+if (trainingData.length === 0) {
+  throw new Error("AI training data is missing or invalid.");
+}
+
+const vocabulary = new Set<string>();
+const totalSamples = trainingData.reduce((sum, entry) => sum + entry.samples.length, 0);
+
+const categoryModels: CategoryModel[] = trainingData.map((entry) => {
   const counts = new Map<string, number>();
-  let total = 0;
+  let totalFeatureWeight = 0;
 
   entry.samples.forEach((sample) => {
-    tokenize(sample).forEach((token) => {
-      counts.set(token, (counts.get(token) || 0) + 1);
-      total += 1;
+    extractComplaintFeatures(sample).forEach((feature) => {
+      const weight = feature.includes("_") ? 1.35 : 1;
+      counts.set(feature, (counts.get(feature) || 0) + weight);
+      totalFeatureWeight += weight;
+      vocabulary.add(feature);
     });
   });
 
   return {
     category: entry.category,
+    department: entry.department,
     counts,
-    total,
+    totalFeatureWeight,
     prior: entry.samples.length / totalSamples,
   };
 });
 
-export const classifyCategory = (text: string) => {
-  const tokens = tokenize(text);
-  const vocabSize = vocabulary.size || 1;
+const toConfidenceScore = (scores: Array<{ score: number }>) => {
+  const maxScore = Math.max(...scores.map((entry) => entry.score));
+  const normalized = scores.map((entry) => Math.exp(entry.score - maxScore));
+  const total = normalized.reduce((sum, value) => sum + value, 0) || 1;
+  const probabilities = normalized.map((value) => value / total).sort((left, right) => right - left);
+  const topProbability = probabilities[0] || 0;
+  const runnerUpProbability = probabilities[1] || 0;
+  const margin = topProbability - runnerUpProbability;
 
-  const scores = categoryTokenCounts.map((entry) => {
-    const logScore = tokens.reduce((score, token) => {
-      const tokenCount = entry.counts.get(token) || 0;
-      return score + Math.log((tokenCount + 1) / (entry.total + vocabSize));
-    }, Math.log(entry.prior));
+  return Number(Math.min(0.9999, Math.max(0.4, topProbability + margin * 0.35)).toFixed(4));
+};
+
+export const classifyCategory = (
+  text: string,
+): {
+  category: ComplaintCategory;
+  department: ComplaintDepartment;
+  confidence: number;
+} => {
+  const features = extractComplaintFeatures(text);
+  const fallback = categoryModels[0];
+
+  if (!fallback) {
+    throw new Error("No trained category models were built.");
+  }
+
+  if (features.length === 0) {
+    return {
+      category: fallback.category,
+      department: fallback.department,
+      confidence: 0.4,
+    };
+  }
+
+  const vocabularySize = vocabulary.size || 1;
+  const scores = categoryModels.map((entry) => {
+    const logScore = features.reduce((score, feature) => {
+      const featureCount = entry.counts.get(feature) || 0;
+      const featureWeight = feature.includes("_") ? 1.15 : 1;
+
+      return score + Math.log((featureCount + 1) / (entry.totalFeatureWeight + vocabularySize)) * featureWeight;
+    }, Math.log(entry.prior || 1 / categoryModels.length));
 
     return {
       category: entry.category,
+      department: entry.department,
       score: logScore,
     };
   });
 
-  const bestMatch = scores.reduce((best, current) =>
-    current.score > best.score ? current : best,
-  );
+  const bestMatch = scores.reduce((best, current) => {
+    return current.score > best.score ? current : best;
+  });
 
   return {
     category: bestMatch.category,
-    confidence: Number((1 / (1 + Math.exp(-bestMatch.score))).toFixed(4)),
+    department: bestMatch.department,
+    confidence: toConfidenceScore(scores),
   };
 };
-
