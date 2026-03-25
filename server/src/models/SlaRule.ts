@@ -1,10 +1,12 @@
 import { Schema, model, type HydratedDocument, type InferSchemaType } from "mongoose";
 
+import { complaintCategories } from "../ai-engine/constants";
+
 const slaRuleSchema = new Schema(
   {
     category: {
       type: String,
-      enum: ["garbage", "water", "electricity", "road", "drainage"],
+      enum: complaintCategories,
       required: true,
       unique: true,
     },
@@ -21,4 +23,3 @@ export type SlaRule = InferSchemaType<typeof slaRuleSchema>;
 export type SlaRuleDocument = HydratedDocument<SlaRule>;
 
 export const SlaRuleModel = model<SlaRule>("SlaRule", slaRuleSchema);
-

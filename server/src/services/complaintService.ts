@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import type { Types } from "mongoose";
 
-import { runAiPipeline, type ComplaintCategory } from "../ai-engine/pipeline";
+import { type ComplaintCategory, departmentByCategory } from "../ai-engine/constants";
+import { runAiPipeline } from "../ai-engine/pipeline";
 import { uploadImageToCloudinary } from "../config/cloudinary";
 import { HttpError } from "../middleware/errorHandler";
 import { ComplaintModel, type ComplaintStatus } from "../models/Complaint";
@@ -19,51 +20,94 @@ import { generateComplaintId } from "../utils/generateComplaintId";
 const defaultDepartments = [
   {
     name: "Sanitation Department",
-    description: "Handles garbage collection and sanitation complaints.",
+    description: "Handles garbage collection, waste overflow, and sanitation complaints.",
     headOfficer: "Municipal Sanitation Officer",
     contactEmail: "sanitation@civicconnect.gov",
   },
   {
-    name: "Water Board",
-    description: "Handles water supply and leakage issues.",
+    name: "Water Supply Department",
+    description: "Handles water supply disruptions, leaks, contamination, and pressure issues.",
     headOfficer: "Chief Water Engineer",
     contactEmail: "water@civicconnect.gov",
   },
   {
-    name: "Electrical Maintenance Wing",
-    description: "Handles streetlights and electrical infrastructure issues.",
-    headOfficer: "Electrical Operations Head",
+    name: "Electricity Board",
+    description: "Handles electrical faults, outages, sparking infrastructure, and unsafe power assets.",
+    headOfficer: "Power Operations Director",
     contactEmail: "electricity@civicconnect.gov",
   },
   {
-    name: "Roads and Works Department",
-    description: "Handles potholes, road damage, and repairs.",
-    headOfficer: "Road Maintenance Commissioner",
+    name: "Roads & Infrastructure Department",
+    description: "Handles potholes, damaged roads, missing barricades, and infrastructure repairs.",
+    headOfficer: "Road Infrastructure Commissioner",
     contactEmail: "roads@civicconnect.gov",
   },
   {
-    name: "Drainage and Sewage Board",
-    description: "Handles drainage blockages and overflow issues.",
+    name: "Drainage Department",
+    description: "Handles blocked drains, sewage overflow, manholes, and floodwater complaints.",
     headOfficer: "Drainage Superintendent",
     contactEmail: "drainage@civicconnect.gov",
+  },
+  {
+    name: "Electrical Maintenance",
+    description: "Handles faulty streetlights, dark stretches, and electrical maintenance in public spaces.",
+    headOfficer: "Electrical Maintenance Supervisor",
+    contactEmail: "streetlights@civicconnect.gov",
+  },
+  {
+    name: "Traffic Police",
+    description: "Handles signal failures, traffic congestion, wrong-side driving, and illegal parking issues.",
+    headOfficer: "Traffic Control Inspector",
+    contactEmail: "traffic@civicconnect.gov",
+  },
+  {
+    name: "Transport Department",
+    description: "Handles public bus service gaps, overcrowding, missing stops, and commuter complaints.",
+    headOfficer: "Regional Transport Manager",
+    contactEmail: "transport@civicconnect.gov",
+  },
+  {
+    name: "Parks & Recreation",
+    description: "Handles damaged parks, broken play equipment, poor upkeep, and unsafe recreation spaces.",
+    headOfficer: "Parks Operations Manager",
+    contactEmail: "parks@civicconnect.gov",
+  },
+  {
+    name: "Municipal Enforcement",
+    description: "Handles illegal encroachments on footpaths, roads, drains, and public land.",
+    headOfficer: "Municipal Enforcement Officer",
+    contactEmail: "enforcement@civicconnect.gov",
+  },
+  {
+    name: "Environmental Department",
+    description: "Handles air, noise, smoke, and dust pollution complaints across the city.",
+    headOfficer: "Environmental Health Officer",
+    contactEmail: "environment@civicconnect.gov",
+  },
+  {
+    name: "Animal Control",
+    description: "Handles stray animal attacks, dead animals, and nuisance animal complaints.",
+    headOfficer: "Animal Welfare Supervisor",
+    contactEmail: "animals@civicconnect.gov",
   },
 ] as const;
 
 const defaultSlaRules: Record<ComplaintCategory, number> = {
-  electricity: 12,
-  water: 24,
-  garbage: 48,
-  road: 72,
-  drainage: 36,
+  garbage: 36,
+  water: 18,
+  electricity: 10,
+  road: 48,
+  drainage: 12,
+  streetlight: 18,
+  traffic: 8,
+  public_transport: 24,
+  park: 72,
+  encroachment: 48,
+  pollution: 16,
+  stray_animals: 14,
 };
 
-const categoryDepartmentMap: Record<ComplaintCategory, string> = {
-  garbage: "Sanitation Department",
-  water: "Water Board",
-  electricity: "Electrical Maintenance Wing",
-  road: "Roads and Works Department",
-  drainage: "Drainage and Sewage Board",
-};
+const categoryDepartmentMap: Record<ComplaintCategory, string> = departmentByCategory;
 
 const closedComplaintStatuses: ComplaintStatus[] = ["Resolved", "Rejected"];
 const FALSE_COMPLAINT_SUSPENSION_THRESHOLD = Math.max(1, Number(process.env.FALSE_COMPLAINT_SUSPENSION_THRESHOLD || 3));
@@ -137,8 +181,9 @@ const handleComplaintStatusSideEffects = async ({
   await createComplaintStatusNotification({
     userId: citizenId,
     complaintId,
-    title: "Complaint status updated",
+    title: status === "Resolved" ? "Complaint resolved" : "Complaint status updated",
     message,
+    type: status === "Resolved" ? "resolved" : "status_updated",
   });
 
   const citizen = await UserModel.findById(citizenId).lean();
@@ -232,7 +277,7 @@ export const createComplaintWithAi = async ({
     sentimentScore: aiResult.sentimentScore,
     duplicateScore: aiResult.duplicateScore,
     status: "Pending",
-    department: resolveDepartmentName(aiResult.category),
+    department: aiResult.department,
     citizenId,
     imageUrl: uploadedImage?.imageUrl,
     imageThumbnailUrl: uploadedImage?.thumbnailUrl,
@@ -320,7 +365,7 @@ export const updateComplaintWithAi = async ({
   complaint.severityScore = aiResult.severityScore;
   complaint.sentimentScore = aiResult.sentimentScore;
   complaint.duplicateScore = aiResult.duplicateScore;
-  complaint.department = resolveDepartmentName(aiResult.category);
+  complaint.department = aiResult.department;
   complaint.location = createGeoPoint(longitude, latitude);
   complaint.address = address;
   complaint.slaDeadline = slaDeadline;

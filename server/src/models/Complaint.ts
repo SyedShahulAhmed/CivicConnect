@@ -1,5 +1,7 @@
 import { Schema, Types, model, type HydratedDocument, type InferSchemaType } from "mongoose";
 
+import { complaintCategories } from "../ai-engine/constants";
+
 export const complaintStatuses = ["Pending", "In Progress", "Resolved", "Rejected"] as const;
 export type ComplaintStatus = (typeof complaintStatuses)[number];
 
@@ -23,7 +25,7 @@ const complaintSchema = new Schema(
     },
     category: {
       type: String,
-      enum: ["garbage", "water", "electricity", "road", "drainage"],
+      enum: complaintCategories,
       required: true,
     },
     priority: {

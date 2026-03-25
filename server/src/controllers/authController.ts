@@ -3,9 +3,10 @@ import Joi from "joi";
 import type { NextFunction, Request, Response } from "express";
 
 import { signToken } from "../config/jwt";
-import { UserModel } from "../models/User";
 import type { AuthenticatedRequest } from "../middleware/authMiddleware";
 import { HttpError } from "../middleware/errorHandler";
+import { UserModel } from "../models/User";
+import { buildUserResponse } from "../utils/buildUserResponse";
 
 const registerSchema = Joi.object({
   name: Joi.string().trim().min(2).max(80).required(),
@@ -19,31 +20,6 @@ const registerSchema = Joi.object({
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
-});
-
-const buildUserResponse = (user: {
-  id?: string;
-  _id?: { toString(): string };
-  name: string;
-  email: string;
-  role: "citizen" | "admin";
-  ward: string;
-  address: string;
-  falseComplaintCount?: number;
-  isSuspended?: boolean;
-  suspendedAt?: Date | null;
-  suspensionReason?: string | null;
-}) => ({
-  id: user.id || user._id?.toString(),
-  name: user.name,
-  email: user.email,
-  role: user.role,
-  ward: user.ward,
-  address: user.address,
-  falseComplaintCount: user.falseComplaintCount || 0,
-  isSuspended: Boolean(user.isSuspended),
-  suspendedAt: user.suspendedAt || undefined,
-  suspensionReason: user.suspensionReason || undefined,
 });
 
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -139,4 +115,3 @@ export const getCurrentUser = async (
     next(error);
   }
 };
-

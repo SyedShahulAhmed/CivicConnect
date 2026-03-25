@@ -5,8 +5,6 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 
-import { connectDatabase } from "./config/db";
-import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import adminRoutes from "./routes/adminRoutes";
 import analyticsRoutes from "./routes/analyticsRoutes";
 import authRoutes from "./routes/authRoutes";
@@ -14,6 +12,9 @@ import citizenRoutes from "./routes/citizenRoutes";
 import complaintRoutes from "./routes/complaintRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
 import publicRoutes from "./routes/publicRoutes";
+import userRoutes from "./routes/userRoutes";
+import { connectDatabase } from "./config/db";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { seedReferenceData } from "./services/complaintService";
 import { startSlaMonitor } from "./services/slaMonitor";
 
@@ -42,6 +43,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/analytics", analyticsRoutes);

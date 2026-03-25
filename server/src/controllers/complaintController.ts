@@ -2,6 +2,7 @@ import Joi from "joi";
 import mongoose from "mongoose";
 import type { NextFunction, Response } from "express";
 
+import { complaintCategories } from "../ai-engine/constants";
 import { ComplaintModel } from "../models/Complaint";
 import type { AuthenticatedRequest } from "../middleware/authMiddleware";
 import { HttpError } from "../middleware/errorHandler";
@@ -15,9 +16,7 @@ import { parseNearbyQuery } from "../utils/geoUtils";
 const complaintSchema = Joi.object({
   title: Joi.string().trim().min(5).max(120).required(),
   description: Joi.string().trim().min(10).max(1500).required(),
-  category: Joi.string()
-    .valid("garbage", "water", "electricity", "road", "drainage")
-    .optional(),
+  category: Joi.string().valid(...complaintCategories).optional(),
   address: Joi.string().trim().min(5).max(200).required(),
   longitude: Joi.number().required(),
   latitude: Joi.number().required(),
