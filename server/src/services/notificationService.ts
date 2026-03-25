@@ -25,6 +25,9 @@ interface NotificationPayload {
 
 const notificationRetentionWindowMs = 30 * 24 * 60 * 60 * 1000;
 const alertNotificationTypes: NotificationType[] = ["sla_warning", "complaint_created", "admin_message"];
+const slaAlertPattern = /(sla|overdue|deadline|violation)/i;
+const resolvedPattern = /(resolved|closed|issue resolved|status resolved)/i;
+const complaintCreatedPattern = /(new complaint submitted|complaint submitted|new complaint)/i;
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -34,6 +37,36 @@ const cleanupExpiredNotificationsForUser = async (userId: string) => {
     userId,
     createdAt: { $lt: cutoff },
   });
+};
+
+const inferNotificationType = ({
+  title,
+  message,
+  type,
+}: {
+  title: string;
+  message: string;
+  type?: NotificationType;
+}): NotificationType => {
+  if (type && type !== "status_updated") {
+    return type;
+  }
+
+  const content = `${title} ${message}`;
+
+  if (slaAlertPattern.test(content)) {
+    return "sla_warning";
+  }
+
+  if (resolvedPattern.test(content)) {
+    return "resolved";
+  }
+
+  if (complaintCreatedPattern.test(content)) {
+    return "complaint_created";
+  }
+
+  return type || "status_updated";
 };
 
 const serializeNotification = (notification: {
@@ -50,7 +83,7 @@ const serializeNotification = (notification: {
   complaintId: notification.complaintId == null ? undefined : String(notification.complaintId),
   title: notification.title,
   message: notification.message,
-  type: notification.type || "status_updated",
+  type: inferNotificationType(notification),
   isRead: Boolean(notification.read),
   createdAt: new Date(notification.createdAt).toISOString(),
   updatedAt: new Date(notification.updatedAt).toISOString(),
@@ -60,26 +93,44 @@ const buildNotificationQuery = (
   userId: string,
   { tab = "all", search = "" }: Pick<NotificationListOptions, "tab" | "search">,
 ): FilterQuery<any> => {
-  const query: FilterQuery<any> = { userId };
+  const normalizedSearch = search.trim();
+  const conditions: FilterQuery<any>[] = [{ userId }];
 
   if (tab === "unread") {
-    query.read = false;
+    conditions.push({ read: false });
   } else if (tab === "alerts") {
-    query.type = { $in: alertNotificationTypes };
+    conditions.push({
+      $or: [
+        { type: { $in: alertNotificationTypes } },
+        { title: { $regex: slaAlertPattern } },
+        { message: { $regex: slaAlertPattern } },
+      ],
+    });
   } else if (tab === "resolved") {
-    query.type = "resolved";
+    conditions.push({
+      $or: [
+        { type: "resolved" },
+        { title: { $regex: resolvedPattern } },
+        { message: { $regex: resolvedPattern } },
+      ],
+    });
   }
 
-  const normalizedSearch = search.trim();
   if (normalizedSearch) {
     const pattern = escapeRegex(normalizedSearch);
-    query.$or = [
-      { title: { $regex: pattern, $options: "i" } },
-      { message: { $regex: pattern, $options: "i" } },
-    ];
+    conditions.push({
+      $or: [
+        { title: { $regex: pattern, $options: "i" } },
+        { message: { $regex: pattern, $options: "i" } },
+      ],
+    });
   }
 
-  return query;
+  if (conditions.length === 1) {
+    return conditions[0];
+  }
+
+  return { $and: conditions };
 };
 
 export const createComplaintStatusNotification = async ({
