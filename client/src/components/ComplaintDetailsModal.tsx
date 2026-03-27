@@ -137,7 +137,7 @@ const ComplaintDetailsModal = ({
                   <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
                     {citizen?.name || "Citizen details unavailable"}
                   </p>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{citizen?.email || "No email available"}</p>
+                  {/* <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{citizen?.email || "No email available"}</p> */}
                   <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{citizen?.ward || "Ward unavailable"}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
