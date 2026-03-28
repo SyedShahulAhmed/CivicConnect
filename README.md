@@ -130,12 +130,6 @@ This project is licensed under the **MIT License**.
 
 ---
 
-# 🙌 Acknowledgements
-
-* MERN Stack Community 💻
-* OpenAI / AI Tools 🤖
-* Developers & Contributors ❤️
-
 ---
 
 # ⭐ Support
