@@ -393,7 +393,7 @@ const CitizenDashboard = () => {
           {error}
         </div>
       ) : null}
-
+      {/* 
       <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         <StatsCard
           label="Pending"
@@ -431,8 +431,42 @@ const CitizenDashboard = () => {
           tone="orange"
           description="Complaints rejected for your account this week."
         />
-      </div>
+      </div> */}
 
+      <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <StatsCard
+          label="Pending"
+          value={statTrends.pending.value}
+          direction={statTrends.pending.direction}
+          trendLabel="this week"
+          tone="orange"
+          description="Pending complaint activity for your account this week."
+        />
+        <StatsCard
+          label="In Progress"
+          value={statTrends.inProgress.value}
+          direction={statTrends.inProgress.direction}
+          trendLabel="this week"
+          tone="blue"
+          description="Complaints moved through active work this week."
+        />
+        <StatsCard
+          label="Resolved"
+          value={statTrends.resolved.value}
+          direction={statTrends.resolved.direction}
+          trendLabel="this week"
+          tone="green"
+          description="Complaints resolved for you this week."
+        />
+        <StatsCard
+          label="Rejected"
+          value={statTrends.rejected.value}
+          direction={statTrends.rejected.direction}
+          trendLabel="this week"
+          tone="orange"
+          description="Complaints rejected for your account this week."
+        />
+      </div>
       <div className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <input
